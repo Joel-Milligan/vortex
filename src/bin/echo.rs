@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use serde::{Deserialize, Serialize};
 use vortex::*;
 
@@ -21,22 +19,18 @@ impl Node<(), Payload> for EchoNode {
     }
 
     fn step(&mut self, input: Message<Payload>, output: &mut std::io::StdoutLock) {
-        match input.body.payload {
-            Payload::Echo { echo } => {
-                let reply = Message {
-                    src: input.dest,
-                    dest: input.src,
-                    body: Body {
-                        id: Some(self.id),
-                        in_reply_to: input.body.id,
-                        payload: Payload::EchoOk { echo },
+        let mut reply = input.into_reply(Some(&mut self.id));
+        match reply.body.payload {
+            Payload::Echo { ref echo } => {
+                reply.send(
+                    output,
+                    Payload::EchoOk {
+                        echo: echo.to_string(),
                     },
-                };
-                serde_json::to_writer(&mut *output, &reply).unwrap();
-                output.write_all(b"\n").unwrap();
+                );
                 self.id += 1;
             }
-            Payload::EchoOk { echo: _ } => {}
+            Payload::EchoOk { .. } => {}
         }
     }
 }

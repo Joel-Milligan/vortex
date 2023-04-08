@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use serde::{Deserialize, Serialize};
 use vortex::*;
 
@@ -24,24 +22,19 @@ impl Node<(), Payload> for GenerateNode {
     }
 
     fn step(&mut self, input: Message<Payload>, output: &mut std::io::StdoutLock) {
-        match input.body.payload {
+        let mut reply = input.into_reply(Some(&mut self.id));
+
+        match reply.body.payload {
             Payload::Generate => {
-                let reply = Message {
-                    src: input.dest,
-                    dest: input.src,
-                    body: Body {
-                        id: Some(self.id),
-                        in_reply_to: input.body.id,
-                        payload: Payload::GenerateOk {
-                            uuid: uuid::Uuid::new_v4(),
-                        },
+                reply.send(
+                    output,
+                    Payload::GenerateOk {
+                        uuid: uuid::Uuid::new_v4(),
                     },
-                };
-                serde_json::to_writer(&mut *output, &reply).unwrap();
-                output.write_all(b"\n").unwrap();
+                );
                 self.id += 1;
             }
-            Payload::GenerateOk { uuid: _ } => panic!("received generate_ok"),
+            Payload::GenerateOk { .. } => {}
         }
     }
 }

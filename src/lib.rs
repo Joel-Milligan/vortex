@@ -1,13 +1,36 @@
-use std::io::{BufRead, Write};
-
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::io::{BufRead, Write};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message<Payload> {
     pub src: String,
     pub dest: String,
     pub body: Body<Payload>,
+}
+
+impl<Payload: Serialize> Message<Payload> {
+    pub fn into_reply(self, id: Option<&mut usize>) -> Self {
+        Self {
+            src: self.dest,
+            dest: self.src,
+            body: Body {
+                id: id.map(|id| {
+                    let mid = *id;
+                    *id += 1;
+                    mid
+                }),
+                in_reply_to: self.body.id,
+                payload: self.body.payload,
+            },
+        }
+    }
+
+    pub fn send(&mut self, output: &mut std::io::StdoutLock, payload: Payload) {
+        self.body.payload = payload;
+        serde_json::to_writer(&mut *output, &self).unwrap();
+        output.write_all(b"\n").unwrap();
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

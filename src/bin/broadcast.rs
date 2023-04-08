@@ -1,6 +1,5 @@
-use std::{collections::HashMap, io::Write};
-
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use vortex::*;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,58 +42,29 @@ impl Node<(), Payload> for BroadcastNode {
     }
 
     fn step(&mut self, input: Message<Payload>, output: &mut std::io::StdoutLock) {
-        match input.body.payload {
+        let mut reply = input.into_reply(Some(&mut self.id));
+
+        match reply.body.payload {
             Payload::Broadcast { message } => {
                 self.messages.push(message);
-
-                let reply = Message {
-                    src: input.dest,
-                    dest: input.src,
-                    body: Body {
-                        id: Some(self.id),
-                        in_reply_to: input.body.id,
-                        payload: Payload::BroadcastOk,
-                    },
-                };
-                serde_json::to_writer(&mut *output, &reply).unwrap();
-                output.write_all(b"\n").unwrap();
+                reply.send(output, Payload::BroadcastOk);
                 self.id += 1;
             }
-            Payload::BroadcastOk => {}
             Payload::Read => {
-                let reply = Message {
-                    src: input.dest,
-                    dest: input.src,
-                    body: Body {
-                        id: Some(self.id),
-                        in_reply_to: input.body.id,
-                        payload: Payload::ReadOk {
-                            messages: self.messages.clone(),
-                        },
+                reply.send(
+                    output,
+                    Payload::ReadOk {
+                        messages: self.messages.clone(),
                     },
-                };
-                serde_json::to_writer(&mut *output, &reply).unwrap();
-                output.write_all(b"\n").unwrap();
+                );
                 self.id += 1;
             }
-            Payload::ReadOk { messages: _ } => {}
-            Payload::Topology { topology } => {
-                self.topology = topology;
-
-                let reply = Message {
-                    src: input.dest,
-                    dest: input.src,
-                    body: Body {
-                        id: Some(self.id),
-                        in_reply_to: input.body.id,
-                        payload: Payload::TopologyOk,
-                    },
-                };
-                serde_json::to_writer(&mut *output, &reply).unwrap();
-                output.write_all(b"\n").unwrap();
+            Payload::Topology { ref topology } => {
+                self.topology = topology.clone();
+                reply.send(output, Payload::TopologyOk);
                 self.id += 1;
             }
-            Payload::TopologyOk => {}
+            Payload::ReadOk { .. } | Payload::BroadcastOk | Payload::TopologyOk => {}
         }
     }
 }
