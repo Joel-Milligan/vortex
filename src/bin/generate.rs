@@ -26,12 +26,9 @@ impl Node<(), Payload> for GenerateNode {
 
         match reply.body.payload {
             Payload::Generate => {
-                reply.send(
-                    output,
-                    Payload::GenerateOk {
-                        uuid: uuid::Uuid::new_v4(),
-                    },
-                );
+                let uuid = uuid::Uuid::new_v4();
+                reply.body.payload = Payload::GenerateOk { uuid };
+                reply.send(output);
                 self.id += 1;
             }
             Payload::GenerateOk { .. } => {}

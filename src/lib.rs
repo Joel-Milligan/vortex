@@ -2,7 +2,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Write};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message<Payload> {
     pub src: String,
     pub dest: String,
@@ -26,14 +26,13 @@ impl<Payload: Serialize> Message<Payload> {
         }
     }
 
-    pub fn send(&mut self, output: &mut std::io::StdoutLock, payload: Payload) {
-        self.body.payload = payload;
+    pub fn send(&self, output: &mut std::io::StdoutLock) {
         serde_json::to_writer(&mut *output, &self).unwrap();
         output.write_all(b"\n").unwrap();
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Body<Payload> {
     #[serde(rename = "msg_id")]
     pub id: Option<usize>,

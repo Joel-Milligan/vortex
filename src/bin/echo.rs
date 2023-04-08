@@ -22,12 +22,9 @@ impl Node<(), Payload> for EchoNode {
         let mut reply = input.into_reply(Some(&mut self.id));
         match reply.body.payload {
             Payload::Echo { ref echo } => {
-                reply.send(
-                    output,
-                    Payload::EchoOk {
-                        echo: echo.to_string(),
-                    },
-                );
+                let echo = echo.to_string();
+                reply.body.payload = Payload::EchoOk { echo };
+                reply.send(output);
                 self.id += 1;
             }
             Payload::EchoOk { .. } => {}
