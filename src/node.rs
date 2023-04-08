@@ -39,6 +39,23 @@ impl Node {
                 self.id += 1;
             }
             Payload::EchoOk { echo: _ } => {}
+            Payload::Generate => {
+                let reply = Message {
+                    src: input.dest,
+                    dest: input.src,
+                    body: Body {
+                        id: Some(self.id),
+                        in_reply_to: input.body.id,
+                        payload: Payload::GenerateOk {
+                            id: uuid::Uuid::new_v4(),
+                        },
+                    },
+                };
+                serde_json::to_writer(&mut *output, &reply).unwrap();
+                output.write_all(b"\n").unwrap();
+                self.id += 1;
+            }
+            Payload::GenerateOk { id: _ } => panic!("received generate_ok"),
         }
     }
 }

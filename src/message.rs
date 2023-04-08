@@ -31,4 +31,8 @@ pub enum Payload {
     EchoOk {
         echo: String,
     },
+    Generate,
+    GenerateOk {
+        id: uuid::Uuid,
+    },
 }
