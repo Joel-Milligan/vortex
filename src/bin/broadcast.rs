@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use vortex::*;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 enum Payload {
@@ -22,6 +22,7 @@ enum Payload {
 
 struct BroadcastNode {
     id: usize,
+    name: String,
     messages: Vec<usize>,
     topology: HashMap<String, Vec<String>>,
 }
@@ -36,32 +37,61 @@ impl Node<(), Payload> for BroadcastNode {
 
         BroadcastNode {
             id: 1,
-            messages: vec![],
+            name: init.node_id,
+            messages: Vec::new(),
             topology,
         }
     }
 
     fn step(&mut self, input: Message<Payload>, output: &mut std::io::StdoutLock) {
-        let mut reply = input.into_reply(Some(&mut self.id));
+        let mut reply = input.clone().into_reply(Some(&mut self.id));
 
         match reply.body.payload {
             Payload::Broadcast { message } => {
+                if self.messages.contains(&message) {
+                    reply.body.payload = Payload::BroadcastOk;
+                    reply.send(output);
+                    self.id += 1;
+                    return;
+                }
+
                 self.messages.push(message);
-                reply.send(output, Payload::BroadcastOk);
+
+                for neighbour in self
+                    .topology
+                    .get(&self.name)
+                    .unwrap()
+                    .iter()
+                    .filter(|n| n.to_string() != input.src)
+                {
+                    let msg = Message {
+                        src: input.clone().dest,
+                        dest: neighbour.to_string(),
+                        body: Body {
+                            id: Some(self.id),
+                            in_reply_to: None,
+                            payload: Payload::Broadcast { message },
+                        },
+                    };
+
+                    msg.send(output);
+                    self.id += 1;
+                }
+
+                reply.body.payload = Payload::BroadcastOk;
+                reply.send(output);
                 self.id += 1;
             }
             Payload::Read => {
-                reply.send(
-                    output,
-                    Payload::ReadOk {
-                        messages: self.messages.clone(),
-                    },
-                );
+                let messages = self.messages.clone();
+                reply.body.payload = Payload::ReadOk { messages };
+                reply.send(output);
                 self.id += 1;
             }
             Payload::Topology { ref topology } => {
                 self.topology = topology.clone();
-                reply.send(output, Payload::TopologyOk);
+                reply.body.payload = Payload::TopologyOk;
+                reply.send(output);
                 self.id += 1;
             }
             Payload::ReadOk { .. } | Payload::BroadcastOk | Payload::TopologyOk => {}
