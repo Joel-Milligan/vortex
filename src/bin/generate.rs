@@ -10,7 +10,10 @@ pub enum Payload {
     Init,
     InitOk,
     Generate,
-    GenerateOk { id: uuid::Uuid },
+    GenerateOk {
+        #[serde(rename = "id")]
+        uuid: uuid::Uuid,
+    },
 }
 
 struct GenerateNode {
@@ -43,7 +46,7 @@ impl Node<Payload> for GenerateNode {
                         id: Some(self.id),
                         in_reply_to: input.body.id,
                         payload: Payload::GenerateOk {
-                            id: uuid::Uuid::new_v4(),
+                            uuid: uuid::Uuid::new_v4(),
                         },
                     },
                 };
@@ -51,7 +54,7 @@ impl Node<Payload> for GenerateNode {
                 output.write_all(b"\n").unwrap();
                 self.id += 1;
             }
-            Payload::GenerateOk { id: _ } => panic!("received generate_ok"),
+            Payload::GenerateOk { uuid: _ } => panic!("received generate_ok"),
         }
     }
 }
