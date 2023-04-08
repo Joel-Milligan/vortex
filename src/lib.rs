@@ -29,8 +29,8 @@ enum InitPayload {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Init {
-    node_id: String,
-    node_ids: Vec<String>,
+    pub node_id: String,
+    pub node_ids: Vec<String>,
 }
 
 pub trait Node<S, Payload> {
